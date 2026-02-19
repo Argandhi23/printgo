@@ -182,7 +182,7 @@ export default function AdminPage() {
           className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10"
         >
           {/* Card 1: Pemasukan */}
-          <div className="bg-white p-6 rounded-[1.5rem] border border-zinc-200 shadow-sm flex items-center space-x-4">
+          <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-sm flex items-center space-x-4">
             <div className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl">
               <DollarSign size={28} />
             </div>
@@ -195,7 +195,7 @@ export default function AdminPage() {
           </div>
 
           {/* Card 2: Order Selesai */}
-          <div className="bg-white p-6 rounded-[1.5rem] border border-zinc-200 shadow-sm flex items-center space-x-4">
+          <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-sm flex items-center space-x-4">
             <div className="p-4 bg-zinc-50 text-zinc-600 rounded-2xl">
               <FileText size={28} />
             </div>
@@ -208,7 +208,7 @@ export default function AdminPage() {
           </div>
 
           {/* Card 3: Antrean */}
-          <div className="bg-white p-6 rounded-[1.5rem] border border-zinc-200 shadow-sm flex items-center space-x-4">
+          <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-sm flex items-center space-x-4">
             <div className="p-4 bg-amber-50 text-amber-600 rounded-2xl">
               <Clock size={28} />
             </div>
@@ -226,7 +226,7 @@ export default function AdminPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[2rem] border border-zinc-100 overflow-hidden"
+          className="bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-4xl border border-zinc-100 overflow-hidden"
         >
           {loading ? (
             <div className="text-center py-20 text-zinc-400 font-medium flex flex-col items-center justify-center">
@@ -267,13 +267,13 @@ export default function AdminPage() {
                           </a>
                         </td>
 
-                        <td className="py-5 px-6 min-w-[200px]">
+                        <td className="py-5 px-6 min-w-50">
                           <div className="flex items-center gap-2 mb-1.5">
                             <span className="font-bold text-zinc-900">{order.paper_size}</span>
                             <span className="text-zinc-300">•</span>
                             <span className="text-zinc-600 font-medium">{order.print_qty} Lbr</span>
                             {order.is_color ? (
-                              <span className="bg-gradient-to-r from-violet-500 to-cyan-500 text-white text-[9px] px-2 py-0.5 rounded-full font-bold tracking-wider ml-1">COLOR</span>
+                              <span className="bg-linear-to-r from-violet-500 to-cyan-500 text-white text-[9px] px-2 py-0.5 rounded-full font-bold tracking-wider ml-1">COLOR</span>
                             ) : (
                               <span className="bg-zinc-100 text-zinc-500 border border-zinc-200 text-[9px] px-2 py-0.5 rounded-full font-bold tracking-wider ml-1">B/W</span>
                             )}

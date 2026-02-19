@@ -62,11 +62,11 @@ export default function Home() {
       <section className="relative max-w-7xl mx-auto px-6 lg:px-8 py-12 md:py-20 flex flex-col-reverse lg:flex-row items-center justify-between gap-16">
         
         {/* Dekorasi Background Halus */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] opacity-30 pointer-events-none">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-250 h-150 opacity-30 pointer-events-none">
           {/* Target animasi Anime.js: ref={blobRef} */}
           <div 
             ref={blobRef}
-            className="absolute inset-0 bg-[conic-gradient(at_top_right,_var(--tw-gradient-stops))] from-zinc-100 via-zinc-50 to-white blur-3xl rounded-full mix-blend-multiply"
+            className="absolute inset-0 bg-[conic-gradient(at_top_right,var(--tw-gradient-stops))] from-zinc-100 via-zinc-50 to-white blur-3xl rounded-full mix-blend-multiply"
           ></div>
         </div>
 
@@ -131,7 +131,7 @@ export default function Home() {
         >
           {/* Target animasi Anime.js: ref={floatRef} */}
           <div ref={floatRef} className="relative w-full max-w-lg">
-             <div className="absolute inset-0 bg-gradient-to-tr from-zinc-100 to-zinc-50 blur-3xl rounded-full transform rotate-12 scale-110 -z-10 opacity-50"></div>
+             <div className="absolute inset-0 bg-linear-to-tr from-zinc-100 to-zinc-50 blur-3xl rounded-full transform rotate-12 scale-110 -z-10 opacity-50"></div>
              
              <Player
                 autoplay
