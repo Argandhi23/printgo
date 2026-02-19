@@ -2,12 +2,46 @@
 
 import Link from 'next/link';
 import { motion, Variants } from 'framer-motion';
-import { Player } from '@lottiefiles/react-lottie-player';
+import dynamic from 'next/dynamic';
+import { useEffect, useRef } from 'react'; // <-- Tambahan untuk menjaga React tidak crash
 
-// Pastikan path ini sesuai dengan lokasi file Lottie Anda di folder public
+// Sintaks baru Anime.js versi 4
+import { animate } from 'animejs'; 
+
 import heroAnimationData from "../../public/animations/hero-print.json"; 
 
+const Player = dynamic(
+  () => import('@lottiefiles/react-lottie-player').then((mod) => mod.Player),
+  { ssr: false }
+);
+
 export default function Home() {
+  // --- REFERENSI UNTUK ANIME.JS ---
+  const blobRef = useRef<HTMLDivElement>(null);
+  const floatRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Memastikan elemen sudah ada sebelum dianimasikan agar tampilan tidak hilang/crash
+    if (blobRef.current) {
+      animate(blobRef.current, {
+        rotate: 360,
+        duration: 25000, // Putaran sangat lambat
+        loop: true,
+        ease: 'linear'
+      });
+    }
+
+    if (floatRef.current) {
+      animate(floatRef.current, {
+        translateY: [-10, 10], // Efek melayang naik turun
+        direction: 'alternate',
+        loop: true,
+        duration: 3000,
+        ease: 'easeInOutSine'
+      });
+    }
+  }, []);
+
   const containerVariants: Variants = {
     hidden: { opacity: 0 },
     show: {
@@ -22,15 +56,18 @@ export default function Home() {
   };
 
   return (
-    // UBAH 1: Tambahkan bg-white di wrapper utama agar seluruh halaman putih
     <div className="overflow-hidden font-sans pt-28 bg-white">
       
       {/* --- HERO SECTION --- */}
       <section className="relative max-w-7xl mx-auto px-6 lg:px-8 py-12 md:py-20 flex flex-col-reverse lg:flex-row items-center justify-between gap-16">
         
-        {/* Dekorasi Background Halus (Opsional: Bisa dihapus jika ingin putih polos total tanpa bias warna) */}
+        {/* Dekorasi Background Halus */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] opacity-30 pointer-events-none">
-          <div className="absolute inset-0 bg-[conic-gradient(at_top_right,_var(--tw-gradient-stops))] from-zinc-100 via-zinc-50 to-white blur-3xl rounded-full mix-blend-multiply"></div>
+          {/* Target animasi Anime.js: ref={blobRef} */}
+          <div 
+            ref={blobRef}
+            className="absolute inset-0 bg-[conic-gradient(at_top_right,_var(--tw-gradient-stops))] from-zinc-100 via-zinc-50 to-white blur-3xl rounded-full mix-blend-multiply"
+          ></div>
         </div>
 
         {/* Teks Kiri */}
@@ -50,7 +87,6 @@ export default function Home() {
           
           <motion.h1 variants={itemVariants} className="text-5xl lg:text-7xl font-extrabold tracking-tight text-zinc-900 leading-[1.1] mb-6">
             Cetak Dokumen <br />
-            {/* UBAH 2: Mengubah gradien menjadi warna abu-abu solid */}
             <span className="text-zinc-500">
               Tanpa Antre.
             </span>
@@ -93,8 +129,8 @@ export default function Home() {
           transition={{ duration: 1, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
           className="w-full lg:w-2/5 relative z-10 flex justify-center"
         >
-          <div className="relative w-full max-w-lg">
-             {/* UBAH 3: Menghapus atau menyamarkan blob background agar tidak kontras dengan background putih */}
+          {/* Target animasi Anime.js: ref={floatRef} */}
+          <div ref={floatRef} className="relative w-full max-w-lg">
              <div className="absolute inset-0 bg-gradient-to-tr from-zinc-100 to-zinc-50 blur-3xl rounded-full transform rotate-12 scale-110 -z-10 opacity-50"></div>
              
              <Player
@@ -108,7 +144,6 @@ export default function Home() {
       </section>
 
       {/* --- CARA KERJA SECTION --- */}
-      {/* UBAH 4: Menghapus border-t agar sambungan terlihat mulus putih */}
       <section className="bg-white py-24 relative z-20">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <motion.div 
