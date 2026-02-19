@@ -1,35 +1,28 @@
-'use client'
+"use client"
 
 import { createClient } from '@/utils/supabase/client'
 import { useState, useEffect } from 'react'
+import { motion } from 'framer-motion'
 
 export default function OrderForm() {
   const supabase = createClient()
   
-  // --- STATE MANAGEMENT ---
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [file, setFile] = useState<File | null>(null)
   
-  // State untuk kalkulasi harga
   const [qty, setQty] = useState(1)
-  const [isColor, setIsColor] = useState(false) // false = BW, true = Color
+  const [isColor, setIsColor] = useState(false)
   const [estimatedPrice, setEstimatedPrice] = useState(0)
 
-  // State setelah sukses order
   const [orderSuccess, setOrderSuccess] = useState(false)
   const [selectedMethod, setSelectedMethod] = useState('')
   const [customerName, setCustomerName] = useState('')
-
-  // State untuk jam operasional toko
   const [isStoreClosed, setIsStoreClosed] = useState(false)
 
-  // --- CEK JAM OPERASIONAL & RUMUS HARGA ---
   useEffect(() => {
-    // 1. Cek Jam Buka Toko (Misal: 08:00 - 21:00)
     const checkStoreHours = () => {
       const currentHour = new Date().getHours()
-      // Jika jam kurang dari 8 pagi ATAU lebih dari/sama dengan 9 malam
       if (currentHour < 8 || currentHour >= 21) {
         setIsStoreClosed(true)
       } else {
@@ -38,29 +31,24 @@ export default function OrderForm() {
     }
     checkStoreHours()
 
-    // 2. Hitung Estimasi Harga
     const pricePerSheet = isColor ? 1500 : 1000
     setEstimatedPrice(qty * pricePerSheet)
   }, [qty, isColor])
 
-  // --- FUNGSI VALIDASI FILE ---
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
-    
     if (!selectedFile) {
       setFile(null)
       return
     }
 
-    // 1. Validasi Ukuran (Max 10MB)
     if (selectedFile.size > 10 * 1024 * 1024) {
       alert('⚠️ File terlalu besar! Maksimal ukuran file adalah 10MB.')
-      e.target.value = '' // Reset input
+      e.target.value = ''
       setFile(null)
       return
     }
 
-    // 2. Validasi Tipe File
     const allowedTypes = [
       'application/pdf', 
       'application/msword', 
@@ -79,7 +67,6 @@ export default function OrderForm() {
     setFile(selectedFile)
   }
 
-  // --- FUNGSI SUBMIT ORDER ---
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
@@ -100,7 +87,6 @@ export default function OrderForm() {
     }
 
     try {
-      // 1. Upload File ke Storage
       const fileName = `${Date.now()}-${file.name.replace(/\s/g, '_')}`
       const { error: uploadError } = await supabase.storage
         .from('print-files')
@@ -108,12 +94,10 @@ export default function OrderForm() {
 
       if (uploadError) throw uploadError
 
-      // 2. Ambil URL Publik File
       const { data: urlData } = supabase.storage
         .from('print-files')
         .getPublicUrl(fileName)
 
-      // 3. Simpan Data ke Database
       const { error: insertError } = await supabase
         .from('orders')
         .insert({
@@ -132,7 +116,6 @@ export default function OrderForm() {
 
       if (insertError) throw insertError
 
-      // 4. Set State Sukses
       setCustomerName(nama)
       setSelectedMethod(metodeBayar)
       setOrderSuccess(true)
@@ -145,188 +128,183 @@ export default function OrderForm() {
     }
   }
 
-  // --- TAMPILAN SUKSES & WA ---
+  // TAMPILAN SUKSES
   if (orderSuccess) {
-    const messageWa = `Halo Admin PRINT GO! 👋\n\nSaya sudah order atas nama: *${customerName}*\nTotal Biaya: Rp ${estimatedPrice.toLocaleString('id-ID')}\nFile: Sudah diupload di web.\n\nMohon segera diproses ya. Terima kasih!`
-    
-    // GANTI NOMOR INI DENGAN NOMOR WA ADMIN ASLI (Format 62...)
-    const adminPhone = '6285806912873' 
-    const waLink = `https://wa.me/${adminPhone}?text=${encodeURIComponent(messageWa)}`
-
     return (
-      <div className="max-w-md mx-auto bg-white p-8 rounded-lg shadow-md text-center border-t-4 border-green-500">
-        <div className="text-6xl mb-4">✅</div>
-        <h2 className="text-2xl font-bold mb-2 text-gray-800">Order Berhasil Diterima!</h2>
-        <p className="text-gray-600 mb-6">Data pesananmu sudah masuk ke sistem admin.</p>
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="max-w-lg mx-auto bg-white p-10 rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-zinc-100 text-center"
+      >
+        <div className="w-20 h-20 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-6">
+          <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h2 className="text-3xl font-extrabold mb-3 text-zinc-900 tracking-tight">Order Diterima!</h2>
+        <p className="text-zinc-500 mb-8">Data pesananmu sudah aman di sistem kami.</p>
 
-        {/* Info Pembayaran */}
         {selectedMethod === 'qris' ? (
-          <div className="bg-gray-100 p-4 rounded border mb-6">
-            <h3 className="font-bold text-lg mb-2 text-gray-800">Silahkan Scan QRIS Ini</h3>
-            {/* Placeholder QRIS sementara sampai dari toko siap */}
-            <div className="w-40 h-40 mx-auto mb-2 bg-gray-200 border-2 border-dashed border-gray-400 flex items-center justify-center text-gray-500 text-sm">
+          <div className="bg-zinc-50 p-6 rounded-2xl border border-zinc-200 mb-8">
+            <h3 className="font-bold text-lg mb-3 text-zinc-800">Scan QRIS</h3>
+            <div className="w-48 h-48 mx-auto mb-4 bg-white border border-zinc-200 rounded-xl flex items-center justify-center text-zinc-400 text-sm shadow-sm">
               [Gambar QRIS Nanti]
             </div>
-            <p className="text-sm text-gray-500">Total: <span className="font-bold text-black">Rp {estimatedPrice.toLocaleString('id-ID')}</span></p>
+            <p className="text-sm text-zinc-500">Total Pembayaran: <br/><span className="text-2xl font-bold text-zinc-900">Rp {estimatedPrice.toLocaleString('id-ID')}</span></p>
           </div>
         ) : (
-          <div className="bg-blue-50 p-4 rounded border mb-6 text-blue-800">
-            <p className="font-bold text-lg">💵 Pembayaran Tunai</p>
-            <p className="text-sm">Siapkan uang tunai sebesar <span className="font-bold">Rp {estimatedPrice.toLocaleString('id-ID')}</span> saat pengambilan.</p>
+          <div className="bg-zinc-50 p-6 rounded-2xl border border-zinc-200 mb-8">
+            <p className="font-bold text-lg text-zinc-800 mb-2">Pembayaran Tunai</p>
+            <p className="text-zinc-600">Siapkan uang tunai sebesar <br/><span className="text-2xl font-bold text-zinc-900">Rp {estimatedPrice.toLocaleString('id-ID')}</span></p>
           </div>
         )}
 
-        {/* Tombol WhatsApp */}
         <a 
-          href={waLink}
+          href={`https://wa.me/6285806912873?text=${encodeURIComponent(`Halo Admin PRINT GO! 👋\n\nSaya sudah order atas nama: *${customerName}*\nTotal Biaya: Rp ${estimatedPrice.toLocaleString('id-ID')}\nFile: Sudah diupload di web.\n\nMohon segera diproses ya. Terima kasih!`)}`}
           target="_blank"
           rel="noreferrer"
-          className="block w-full bg-green-500 text-white font-bold py-3 px-4 rounded mb-3 hover:bg-green-600 transition items-center justify-center gap-2"
+          className="flex items-center justify-center gap-2 w-full bg-zinc-900 text-white font-semibold py-4 px-4 rounded-full mb-3 hover:bg-zinc-800 transition shadow-md"
         >
-          <span>💬 Konfirmasi via WhatsApp</span>
+          Konfirmasi via WhatsApp
         </a>
 
         <button 
           onClick={() => window.location.reload()}
-          className="block w-full bg-gray-200 text-gray-700 font-bold py-3 px-4 rounded hover:bg-gray-300 transition"
+          className="block w-full bg-white text-zinc-600 font-semibold py-4 px-4 rounded-full border border-zinc-200 hover:bg-zinc-50 transition"
         >
           Buat Order Baru
         </button>
-      </div>
+      </motion.div>
     )
   }
 
-  // --- TAMPILAN FORM ORDER ---
+  // TAMPILAN FORM ORDER
   return (
-    <form onSubmit={handleSubmit} className="max-w-md mx-auto bg-white p-6 rounded-lg shadow-md space-y-4 text-gray-800 border-t-4 border-blue-600">
-      <h2 className="text-2xl font-bold mb-4 text-center text-gray-800">Form Order Print</h2>
+    <motion.form 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      onSubmit={handleSubmit} 
+      className="max-w-2xl mx-auto bg-white p-8 md:p-12 rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-zinc-100 space-y-6"
+    >
+      <div className="text-center mb-10">
+        <h2 className="text-3xl font-extrabold text-zinc-900 tracking-tight">Mulai Cetak</h2>
+        <p className="text-zinc-500 mt-2">Lengkapi detail dokumen Anda di bawah ini.</p>
+      </div>
 
-      {/* --- BANNER TOKO TUTUP --- */}
       {isStoreClosed && (
-        <div className="bg-orange-50 border-l-4 border-orange-500 p-4 mb-4 rounded text-orange-800 text-sm shadow-sm">
-          <p className="font-bold flex items-center gap-2">
-            <span>🌙</span> Toko Sedang Tutup
-          </p>
-          <p className="mt-1">
-            Jam operasional kami <strong>08:00 - 21:00</strong>. Orderan kamu tetap bisa dikirim sekarang, tapi baru akan mulai kami proses <strong>besok pagi</strong> ya!
-          </p>
+        <div className="bg-zinc-50 border border-zinc-200 p-5 rounded-2xl text-zinc-600 text-sm flex gap-4 items-start">
+          <span className="text-xl">🌙</span>
+          <div>
+            <p className="font-bold text-zinc-900">Toko Sedang Istirahat</p>
+            <p className="mt-1">Jam operasional 08:00 - 21:00. Orderan akan diproses besok pagi!</p>
+          </div>
         </div>
       )}
 
-      {/* Nama Lengkap */}
-      <div>
-        <label className="block text-sm font-medium mb-1">Nama Lengkap</label>
-        <input name="nama" type="text" required className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Contoh: Budi Santoso" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label className="block text-sm font-semibold text-zinc-700 mb-2">Nama Lengkap</label>
+          <input name="nama" type="text" required className="w-full border border-zinc-200 p-3.5 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-transparent outline-none transition-all bg-zinc-50 focus:bg-white" placeholder="Budi Santoso" />
+        </div>
+        <div>
+          <label className="block text-sm font-semibold text-zinc-700 mb-2">No. WhatsApp</label>
+          <input name="nohp" type="tel" required className="w-full border border-zinc-200 p-3.5 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-transparent outline-none transition-all bg-zinc-50 focus:bg-white" placeholder="0812xxxxxxxx" />
+        </div>
       </div>
 
-      {/* No HP */}
       <div>
-        <label className="block text-sm font-medium mb-1">No. WhatsApp</label>
-        <input name="nohp" type="tel" required className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" placeholder="0812xxxxxxxx" />
+        <label className="block text-sm font-semibold text-zinc-700 mb-2">Upload Dokumen (Max 10MB)</label>
+        <div className="border-2 border-dashed border-zinc-200 rounded-2xl p-6 text-center hover:bg-zinc-50 transition-colors">
+          <input 
+            type="file" 
+            accept=".pdf,.doc,.docx,.jpg,.png" 
+            onChange={handleFileChange}
+            className="w-full text-sm text-zinc-500 file:mr-4 file:py-2.5 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-zinc-900 file:text-white hover:file:bg-zinc-800 cursor-pointer" 
+          />
+        </div>
+        <p className="text-xs text-zinc-400 mt-2 ml-2">*Format: PDF, Word, JPG, PNG.</p>
       </div>
 
-      {/* Ukuran Kertas */}
-      <div>
-        <label className="block text-sm font-medium mb-1">Ukuran Kertas</label>
-        <select name="ukuran" className="w-full border p-2 rounded bg-white">
-          <option value="A4">A4</option>
-          <option value="F4">F4</option>
-          <option value="A3">A3</option>
-        </select>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label className="block text-sm font-semibold text-zinc-700 mb-2">Ukuran Kertas</label>
+          <select name="ukuran" className="w-full border border-zinc-200 p-3.5 rounded-xl focus:ring-2 focus:ring-zinc-900 outline-none transition-all bg-zinc-50 focus:bg-white appearance-none cursor-pointer">
+            <option value="A4">Kertas A4</option>
+            <option value="F4">Kertas F4</option>
+            <option value="A3">Kertas A3</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-semibold text-zinc-700 mb-2">Jumlah Lembar</label>
+          <input 
+            name="jumlah" type="number" min="1" value={qty}
+            onChange={(e) => setQty(parseInt(e.target.value) || 1)}
+            required 
+            className="w-full border border-zinc-200 p-3.5 rounded-xl focus:ring-2 focus:ring-zinc-900 outline-none transition-all bg-zinc-50 focus:bg-white" 
+          />
+        </div>
       </div>
 
-      {/* Pilihan Warna */}
       <div>
-        <label className="block text-sm font-medium mb-2">Jenis Cetak</label>
+        <label className="block text-sm font-semibold text-zinc-700 mb-3">Jenis Cetak</label>
         <div className="grid grid-cols-2 gap-4">
-          <label className={`border p-3 rounded cursor-pointer text-center transition ${!isColor ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-500' : 'bg-gray-50 hover:bg-gray-100'}`}>
+          <label className={`border p-4 rounded-xl cursor-pointer text-center transition-all duration-200 ${!isColor ? 'bg-zinc-900 border-zinc-900 text-white shadow-md transform scale-[1.02]' : 'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50'}`}>
             <input type="radio" name="warna" className="hidden" checked={!isColor} onChange={() => setIsColor(false)} />
-            <span className="font-bold block text-gray-800">Hitam Putih</span>
-            <span className="text-xs text-gray-500">Rp 1.000 / lbr</span>
+            <span className="font-bold block text-base mb-1">Hitam Putih</span>
+            <span className={`text-xs ${!isColor ? 'text-zinc-300' : 'text-zinc-400'}`}>Rp 1.000 / lbr</span>
           </label>
-          <label className={`border p-3 rounded cursor-pointer text-center transition ${isColor ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-500' : 'bg-gray-50 hover:bg-gray-100'}`}>
+          <label className={`border p-4 rounded-xl cursor-pointer text-center transition-all duration-200 ${isColor ? 'bg-zinc-900 border-zinc-900 text-white shadow-md transform scale-[1.02]' : 'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50'}`}>
             <input type="radio" name="warna" className="hidden" checked={isColor} onChange={() => setIsColor(true)} />
-            <span className="font-bold block text-gray-800">Berwarna</span>
-            <span className="text-xs text-gray-500">Rp 1.500 / lbr</span>
+            <span className="font-bold block text-base mb-1">Berwarna</span>
+            <span className={`text-xs ${isColor ? 'text-zinc-300' : 'text-zinc-400'}`}>Rp 1.500 / lbr</span>
           </label>
         </div>
       </div>
 
-      {/* Jumlah Print */}
-      <div>
-        <label className="block text-sm font-medium mb-1">Jumlah Lembar</label>
-        <input 
-          name="jumlah" 
-          type="number" 
-          min="1" 
-          value={qty}
-          onChange={(e) => setQty(parseInt(e.target.value) || 1)}
-          required 
-          className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" 
-        />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label className="block text-sm font-semibold text-zinc-700 mb-2">Waktu Ambil</label>
+          <input name="waktu_ambil" type="datetime-local" required className="w-full border border-zinc-200 p-3.5 rounded-xl focus:ring-2 focus:ring-zinc-900 outline-none transition-all bg-zinc-50 focus:bg-white" />
+        </div>
+        <div>
+          <label className="block text-sm font-semibold text-zinc-700 mb-2">Pembayaran</label>
+          <select name="metode_bayar" className="w-full border border-zinc-200 p-3.5 rounded-xl focus:ring-2 focus:ring-zinc-900 outline-none transition-all bg-zinc-50 focus:bg-white appearance-none cursor-pointer">
+            <option value="cash">Bayar Tunai di Tempat</option>
+            <option value="qris">QRIS (Scan di Toko)</option>
+          </select>
+        </div>
       </div>
 
-      {/* Total Harga Live */}
-      <div className="bg-gray-100 p-3 rounded flex justify-between items-center font-bold border border-gray-200">
-        <span className="text-gray-600">Total Estimasi:</span>
-        <span className="text-blue-700 text-xl">
-          Rp {estimatedPrice.toLocaleString('id-ID')}
-        </span>
-      </div>
-
-      {/* Catatan Tambahan */}
       <div>
-        <label className="block text-sm font-medium mb-1">Catatan Tambahan (Opsional)</label>
+        <label className="block text-sm font-semibold text-zinc-700 mb-2">Catatan Tambahan (Opsional)</label>
         <textarea 
-          name="catatan" 
-          rows={3}
-          className="w-full border p-2 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+          name="catatan" rows={3}
+          className="w-full border border-zinc-200 p-4 rounded-xl focus:ring-2 focus:ring-zinc-900 outline-none transition-all bg-zinc-50 focus:bg-white resize-none"
           placeholder="Contoh: Tolong dijilid spiral, Print halaman 1-10 saja..."
         ></textarea>
       </div>
 
-      {/* Waktu Ambil */}
-      <div>
-        <label className="block text-sm font-medium mb-1">Tanggal & Jam Ambil</label>
-        <input name="waktu_ambil" type="datetime-local" required className="w-full border p-2 rounded" />
+      <div className="bg-zinc-50 p-6 rounded-2xl flex justify-between items-center border border-zinc-200 mt-8">
+        <span className="text-zinc-500 font-medium">Estimasi Biaya</span>
+        <span className="text-2xl font-extrabold text-zinc-900">
+          Rp {estimatedPrice.toLocaleString('id-ID')}
+        </span>
       </div>
 
-      {/* Metode Pembayaran */}
-      <div>
-        <label className="block text-sm font-medium mb-1">Metode Pembayaran</label>
-        <select name="metode_bayar" className="w-full border p-2 rounded bg-white">
-          <option value="cash">Bayar Tunai di Tempat</option>
-          <option value="qris">QRIS (Scan Nanti di Toko)</option>
-        </select>
-      </div>
-
-      {/* Upload File */}
-      <div>
-        <label className="block text-sm font-medium mb-1">Upload Dokumen (Max 10MB)</label>
-        <input 
-          type="file" 
-          accept=".pdf,.doc,.docx,.jpg,.png" 
-          onChange={handleFileChange}
-          className="w-full border p-2 rounded bg-gray-50 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" 
-        />
-        <p className="text-xs text-gray-500 mt-1">*Format: PDF, Word, JPG, PNG.</p>
-      </div>
-
-      {/* Tombol Submit */}
       <button 
         type="submit" 
         disabled={loading}
-        className="w-full bg-blue-600 text-white p-3 rounded font-bold hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition shadow-lg mt-4"
+        className="w-full bg-zinc-900 text-white py-4 rounded-full font-bold text-lg hover:bg-zinc-800 disabled:bg-zinc-300 disabled:text-zinc-500 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl mt-6"
       >
-        {loading ? 'Sedang Mengirim...' : `Kirim Order (Rp ${estimatedPrice.toLocaleString('id-ID')})`}
+        {loading ? 'Memproses Dokumen...' : 'Kirim Pesanan Sekarang'}
       </button>
 
-      {/* Pesan Error */}
       {message && (
-        <div className="p-3 bg-red-100 text-red-700 rounded text-sm text-center border border-red-200">
+        <div className="p-4 bg-red-50 text-red-600 rounded-xl text-sm text-center border border-red-100 font-medium">
           {message}
         </div>
       )}
-    </form>
+    </motion.form>
   )
 }
