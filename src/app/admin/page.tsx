@@ -3,8 +3,8 @@
 import { createClient } from '@/utils/supabase/client'
 import { useEffect, useState } from 'react'
 import { Database } from '@/types/supabase'
-import { motion } from 'framer-motion'
-import { DollarSign, FileText, Clock } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { DollarSign, FileText, Clock, Trash2, AlertCircle, CheckCircle2, X } from 'lucide-react'
 
 type Order = Database['public']['Tables']['orders']['Row']
 
@@ -12,11 +12,15 @@ export default function AdminPage() {
   const supabase = createClient()
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
-  const [cleaning, setCleaning] = useState(false)
   
   // --- STATE UNTUK PAGINATION ---
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
+
+  // --- STATE UNTUK MODAL CLEANUP ---
+  const [showCleanupModal, setShowCleanupModal] = useState(false)
+  const [cleanupStatus, setCleanupStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [cleanupMessage, setCleanupMessage] = useState('')
 
   // --- FUNGSI AMBIL DATA ---
   const fetchOrders = async () => {
@@ -44,11 +48,9 @@ export default function AdminPage() {
   }
 
   // --- FUNGSI BERSIH-BERSIH (AUTO DELETE > 3 HARI) ---
-  const handleCleanup = async () => {
-    const confirmDelete = confirm('Apakah kamu yakin ingin menghapus semua order dan file yang lebih lama dari 3 hari? Data yang dihapus tidak bisa kembali.')
-    if (!confirmDelete) return
-
-    setCleaning(true)
+  const executeCleanup = async () => {
+    setCleanupStatus('loading')
+    setCleanupMessage('')
 
     const limitDate = new Date()
     limitDate.setDate(limitDate.getDate() - 3)
@@ -62,16 +64,27 @@ export default function AdminPage() {
 
       if (fetchError) throw fetchError
       if (!oldOrders || oldOrders.length === 0) {
-        alert('Tidak ada file lama yang perlu dihapus.')
-        setCleaning(false)
+        setCleanupStatus('success')
+        setCleanupMessage('Tidak ada data atau file (lebih dari 3 hari) yang perlu dihapus saat ini.')
         return
       }
 
+      // 1. Ekstrak nama file asli dan perbaiki URL Encoding
       const filesToDelete = oldOrders.map(order => {
-        const parts = order.file_url.split('/')
-        return parts[parts.length - 1]
-      })
+        if (!order.file_url) return null
+        try {
+          const urlObj = new URL(order.file_url)
+          const pathParts = urlObj.pathname.split('/')
+          const encodedFileName = pathParts.pop() // Ambil bagian paling akhir dari URL
+          
+          // decodeURIComponent SANGAT PENTING agar %20 kembali menjadi spasi, dll.
+          return encodedFileName ? decodeURIComponent(encodedFileName) : null
+        } catch (err) {
+          return null
+        }
+      }).filter(Boolean) as string[]
 
+      // 2. Hapus File di Storage dulu
       if (filesToDelete.length > 0) {
         const { error: storageError } = await supabase
           .storage
@@ -81,6 +94,7 @@ export default function AdminPage() {
         if (storageError) throw storageError
       }
 
+      // 3. Baru Hapus Data di Database
       const idsToDelete = oldOrders.map(order => order.id)
       const { error: dbError } = await supabase
         .from('orders')
@@ -89,14 +103,14 @@ export default function AdminPage() {
 
       if (dbError) throw dbError
 
-      alert(`Sukses! ${idsToDelete.length} data lama dan filenya telah dihapus. Storage kamu lega lagi! 🧹`)
+      setCleanupStatus('success')
+      setCleanupMessage(`Sukses! ${idsToDelete.length} data pesanan lama dan filenya telah dihapus secara permanen. Storage plong! 🧹`)
       fetchOrders() 
 
     } catch (error: any) {
       console.error(error)
-      alert('Gagal membersihkan data: ' + error.message)
-    } finally {
-      setCleaning(false)
+      setCleanupStatus('error')
+      setCleanupMessage('Gagal membersihkan data: ' + error.message)
     }
   }
 
@@ -120,30 +134,28 @@ export default function AdminPage() {
     return () => { supabase.removeChannel(channel) }
   }, [])
 
-  // --- KALKULASI PENDATAAN PEMASUKAN ---
+  // --- KALKULASI PENDATAAN ---
   const totalPemasukan = orders
     .filter(o => o.status === 'completed')
-    .reduce((acc, curr) => acc + (curr.total_price || 0), 0);
+    .reduce((acc, curr) => acc + (curr.total_price || 0), 0)
     
-  const orderSelesai = orders.filter(o => o.status === 'completed').length;
-  const orderPending = orders.filter(o => o.status === 'pending' || o.status === 'processing').length;
+  const orderSelesai = orders.filter(o => o.status === 'completed').length
+  const orderPending = orders.filter(o => o.status === 'pending' || o.status === 'processing').length
 
-  // --- LOGIKA PAGINATION ---
-  const totalPages = Math.ceil(orders.length / itemsPerPage);
-  const currentOrders = orders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalPages = Math.ceil(orders.length / itemsPerPage)
+  const currentOrders = orders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
 
-  // Jika setelah delete data halamannya jadi kosong, kembali ke halaman sebelumnya
   useEffect(() => {
     if (currentPage > totalPages && totalPages > 0) {
-      setCurrentPage(totalPages);
+      setCurrentPage(totalPages)
     }
-  }, [orders.length, currentPage, totalPages]);
+  }, [orders.length, currentPage, totalPages])
 
   return (
-    <div className="min-h-screen bg-white py-12 px-6 font-sans text-zinc-900">
+    <div className="min-h-screen bg-white py-12 px-6 font-sans text-zinc-900 relative">
       <div className="max-w-7xl mx-auto">
         
-        {/* Header & Action Buttons */}
+        {/* --- HEADER --- */}
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -164,12 +176,14 @@ export default function AdminPage() {
             </button>
             
             <button 
-                onClick={handleCleanup} 
-                disabled={cleaning}
-                className="inline-flex items-center gap-2 bg-rose-50 border border-rose-100 text-rose-600 px-6 py-2.5 rounded-full hover:bg-rose-100 hover:border-rose-200 transition-all shadow-sm font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => {
+                  setCleanupStatus('idle')
+                  setShowCleanupModal(true)
+                }}
+                className="inline-flex items-center gap-2 bg-rose-50 border border-rose-100 text-rose-600 px-6 py-2.5 rounded-full hover:bg-rose-100 hover:border-rose-200 transition-all shadow-sm font-semibold text-sm"
             >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                {cleaning ? 'Membersihkan...' : 'Hapus Data (> 3 Hari)'}
+                <Trash2 size={16} />
+                Hapus Data Lama
             </button>
           </div>
         </motion.div>
@@ -181,7 +195,6 @@ export default function AdminPage() {
           transition={{ delay: 0.1 }}
           className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10"
         >
-          {/* Card 1: Pemasukan */}
           <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-sm flex items-center space-x-4">
             <div className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl">
               <DollarSign size={28} />
@@ -194,20 +207,18 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* Card 2: Order Selesai */}
           <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-sm flex items-center space-x-4">
             <div className="p-4 bg-zinc-50 text-zinc-600 rounded-2xl">
               <FileText size={28} />
             </div>
             <div>
-              <p className="text-zinc-500 text-sm font-medium">Dokumen Selesai</p>
+              <p className="text-zinc-500 text-sm font-medium">Order Selesai</p>
               <h2 className="text-2xl font-extrabold text-zinc-900 mt-1">
-                {orderSelesai} <span className="text-sm font-medium text-zinc-400">Order</span>
+                {orderSelesai} <span className="text-sm font-medium text-zinc-400">Pesanan</span>
               </h2>
             </div>
           </div>
 
-          {/* Card 3: Antrean */}
           <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-sm flex items-center space-x-4">
             <div className="p-4 bg-amber-50 text-amber-600 rounded-2xl">
               <Clock size={28} />
@@ -240,7 +251,7 @@ export default function AdminPage() {
                   <thead>
                     <tr className="bg-zinc-50 border-b border-zinc-100 text-zinc-400 uppercase text-[10px] font-bold tracking-widest text-left">
                       <th className="py-4 px-6 whitespace-nowrap">Waktu & Klien</th>
-                      <th className="py-4 px-6 whitespace-nowrap">Detail Dokumen</th>
+                      <th className="py-4 px-6 whitespace-nowrap">Detail Dokumen & Pesanan</th>
                       <th className="py-4 px-6 text-center whitespace-nowrap">Tautan File</th>
                       <th className="py-4 px-6 text-center whitespace-nowrap">Pembayaran</th>
                       <th className="py-4 px-6 text-center whitespace-nowrap">Status</th>
@@ -248,7 +259,6 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody className="text-sm">
-                    {/* PERUBAHAN: Gunakan currentOrders, bukan orders */}
                     {currentOrders.map((order) => (
                       <tr key={order.id} className="border-b border-zinc-50 hover:bg-zinc-50/50 transition-colors">
                         <td className="py-5 px-6 whitespace-nowrap">
@@ -282,21 +292,25 @@ export default function AdminPage() {
                             Rp {(order.total_price || 0).toLocaleString('id-ID')}
                           </div>
                           {order.notes && (
-                            <div className="text-xs bg-zinc-50 text-zinc-500 p-2.5 rounded-xl border border-zinc-100 italic">
-                              "{order.notes}"
+                            <div className="text-xs bg-zinc-50 text-zinc-500 p-2.5 rounded-xl border border-zinc-100 italic whitespace-pre-wrap">
+                              {order.notes}
                             </div>
                           )}
                         </td>
 
                         <td className="py-5 px-6 text-center">
-                          <a 
-                            href={order.file_url} 
-                            target="_blank" 
-                            rel="noreferrer"
-                            className="inline-block bg-zinc-900 text-white py-1.5 px-4 rounded-full text-xs font-semibold hover:bg-zinc-800 transition-colors shadow-sm"
-                          >
-                            Download
-                          </a>
+                          {order.file_url ? (
+                            <a 
+                              href={order.file_url} 
+                              target="_blank" 
+                              rel="noreferrer"
+                              className="inline-block bg-zinc-900 text-white py-1.5 px-4 rounded-full text-xs font-semibold hover:bg-zinc-800 transition-colors shadow-sm"
+                            >
+                              Download
+                            </a>
+                          ) : (
+                            <span className="text-xs text-zinc-400 italic">Tidak ada file<br/>(Hanya ATK)</span>
+                          )}
                         </td>
 
                         <td className="py-5 px-6 text-center">
@@ -338,7 +352,6 @@ export default function AdminPage() {
                 </table>
               </div>
 
-              {/* --- KONTROL PAGINATION DI BAWAH TABEL --- */}
               {totalPages > 1 && (
                 <div className="flex items-center justify-between px-6 py-4 border-t border-zinc-100 bg-zinc-50/50">
                   <span className="text-sm text-zinc-500 font-medium">
@@ -364,7 +377,6 @@ export default function AdminPage() {
                 </div>
               )}
 
-              {/* Kondisi Jika Tidak Ada Pesanan */}
               {orders.length === 0 && (
                 <div className="py-24 text-center flex flex-col items-center justify-center text-zinc-400">
                   <svg className="w-16 h-16 mb-4 text-zinc-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -378,6 +390,75 @@ export default function AdminPage() {
           )}
         </motion.div>
       </div>
+
+      {/* --- CUSTOM MODAL CLEANUP (PENGGANTI ALERT/CONFIRM) --- */}
+      <AnimatePresence>
+        {showCleanupModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/40 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-white rounded-[2rem] p-8 max-w-sm w-full shadow-2xl border border-zinc-100 text-center relative"
+            >
+              {cleanupStatus === 'idle' && (
+                <>
+                  <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-5">
+                    <AlertCircle size={32} />
+                  </div>
+                  <h3 className="text-2xl font-extrabold text-zinc-900 mb-2">Hapus Data Lama?</h3>
+                  <p className="text-zinc-500 text-sm mb-8 leading-relaxed">
+                    Semua riwayat pesanan dan file dokumen yang berusia <b>lebih dari 3 hari</b> akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.
+                  </p>
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={() => setShowCleanupModal(false)}
+                      className="flex-1 py-3 px-4 rounded-xl font-bold text-zinc-600 bg-zinc-100 hover:bg-zinc-200 transition"
+                    >
+                      Batal
+                    </button>
+                    <button 
+                      onClick={executeCleanup}
+                      className="flex-1 py-3 px-4 rounded-xl font-bold text-white bg-rose-600 hover:bg-rose-700 transition shadow-md shadow-rose-200"
+                    >
+                      Ya, Hapus
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {cleanupStatus === 'loading' && (
+                <div className="py-8">
+                  <svg className="animate-spin h-12 w-12 text-rose-500 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                  <p className="text-zinc-600 font-bold">Sedang membersihkan...</p>
+                  <p className="text-xs text-zinc-400 mt-1">Jangan tutup halaman ini.</p>
+                </div>
+              )}
+
+              {(cleanupStatus === 'success' || cleanupStatus === 'error') && (
+                <>
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5 ${cleanupStatus === 'success' ? 'bg-emerald-50 text-emerald-500' : 'bg-red-50 text-red-500'}`}>
+                    {cleanupStatus === 'success' ? <CheckCircle2 size={32} /> : <X size={32} />}
+                  </div>
+                  <h3 className="text-xl font-extrabold text-zinc-900 mb-2">
+                    {cleanupStatus === 'success' ? 'Selesai!' : 'Terjadi Kesalahan'}
+                  </h3>
+                  <p className="text-zinc-500 text-sm mb-8 leading-relaxed">
+                    {cleanupMessage}
+                  </p>
+                  <button 
+                    onClick={() => setShowCleanupModal(false)}
+                    className="w-full py-3 px-4 rounded-xl font-bold text-white bg-zinc-900 hover:bg-zinc-800 transition shadow-md"
+                  >
+                    Tutup
+                  </button>
+                </>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   )
 }

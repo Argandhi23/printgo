@@ -6,12 +6,16 @@ import { motion } from 'framer-motion'
 
 export default function OrderForm() {
   const supabase = createClient()
-  
+
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [file, setFile] = useState<File | null>(null)
-  
-  const [qty, setQty] = useState(1)
+
+  // State untuk jumlah diubah agar bisa menerima input kosong ('') agar UX lebih nyaman
+  const [qty, setQty] = useState<number | ''>(0)
+  const [qtyPensil, setQtyPensil] = useState<number | ''>(0)
+  const [qtyBolpoin, setQtyBolpoin] = useState<number | ''>(0)
+
   const [isColor, setIsColor] = useState(false)
   const [estimatedPrice, setEstimatedPrice] = useState(0)
 
@@ -31,9 +35,14 @@ export default function OrderForm() {
     }
     checkStoreHours()
 
+    // Kalkulasi total harga termasuk tambahan alat tulis
     const pricePerSheet = isColor ? 1500 : 1000
-    setEstimatedPrice(qty * pricePerSheet)
-  }, [qty, isColor])
+    const totalPrint = (Number(qty) || 0) * pricePerSheet
+    const totalPensil = (Number(qtyPensil) || 0) * 1500
+    const totalBolpoin = (Number(qtyBolpoin) || 0) * 2000
+
+    setEstimatedPrice(totalPrint + totalPensil + totalBolpoin)
+  }, [qty, isColor, qtyPensil, qtyBolpoin])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
@@ -50,13 +59,13 @@ export default function OrderForm() {
     }
 
     const allowedTypes = [
-      'application/pdf', 
-      'application/msword', 
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
-      'image/jpeg', 
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'image/jpeg',
       'image/png'
     ]
-    
+
     if (!allowedTypes.includes(selectedFile.type)) {
       alert('⚠️ Format file tidak didukung! Harap upload PDF, Word, atau Gambar (JPG/PNG).')
       e.target.value = ''
@@ -80,23 +89,45 @@ export default function OrderForm() {
     const metodeBayar = formData.get('metode_bayar') as "cash" | "qris"
     const catatan = formData.get('catatan') as string
 
-    if (!file) {
+    // Menggabungkan pesanan ATK ke dalam notes agar tidak perlu ubah database
+    let finalNotes = catatan
+    const pQty = Number(qtyPensil) || 0
+    const bQty = Number(qtyBolpoin) || 0
+
+    if (pQty > 0 || bQty > 0) {
+      const tambahan = []
+      if (pQty > 0) tambahan.push(`Pensil (${pQty} pcs)`)
+      if (bQty > 0) tambahan.push(`Bolpoin (${bQty} pcs)`)
+      finalNotes += `\n\n(Tambahan Pembelian: ${tambahan.join(', ')})`
+    }
+
+    if (!file && (Number(qty) > 0)) {
       alert('Tolong upload file dokumennya ya!')
       setLoading(false)
       return
     }
 
     try {
-      const fileName = `${Date.now()}-${file.name.replace(/\s/g, '_')}`
-      const { error: uploadError } = await supabase.storage
-        .from('print-files')
-        .upload(fileName, file)
+      let publicUrl = ''
 
-      if (uploadError) throw uploadError
+      // Jika ada file yang diupload
+      if (file) {
+        // Membersihkan nama file dari spasi dan karakter khusus (seperti kurung siku, dll)
+        const cleanFileName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+        const fileName = `${Date.now()}-${cleanFileName}`
 
-      const { data: urlData } = supabase.storage
-        .from('print-files')
-        .getPublicUrl(fileName)
+        const { error: uploadError } = await supabase.storage
+          .from('print-files')
+          .upload(fileName, file)
+
+        if (uploadError) throw uploadError
+
+        const { data: urlData } = supabase.storage
+          .from('print-files')
+          .getPublicUrl(fileName)
+
+        publicUrl = urlData.publicUrl
+      }
 
       const { error: insertError } = await supabase
         .from('orders')
@@ -104,12 +135,12 @@ export default function OrderForm() {
           customer_name: nama,
           phone_number: nohp,
           paper_size: ukuran,
-          print_qty: qty,
+          print_qty: Number(qty) || 0,
           pickup_time: new Date(waktuAmbil).toISOString(),
           pickup_location: 'Toko Utama',
           payment_method: metodeBayar,
-          file_url: urlData.publicUrl,
-          notes: catatan,
+          file_url: publicUrl,
+          notes: finalNotes,
           is_color: isColor,
           total_price: estimatedPrice,
         })
@@ -131,7 +162,7 @@ export default function OrderForm() {
   // TAMPILAN SUKSES
   if (orderSuccess) {
     return (
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         className="max-w-lg mx-auto bg-white p-10 rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-zinc-100 text-center"
@@ -147,20 +178,20 @@ export default function OrderForm() {
         {selectedMethod === 'qris' ? (
           <div className="bg-zinc-50 p-6 rounded-2xl border border-zinc-200 mb-8">
             <h3 className="font-bold text-lg mb-3 text-zinc-800">Scan QRIS</h3>
-            <div className="w-48 h-48 mx-auto mb-4 bg-white border border-zinc-200 rounded-xl flex items-center justify-center text-zinc-400 text-sm shadow-sm">
-              [Gambar QRIS Nanti]
+            <div className="w-48 h-48 mx-auto mb-4 bg-white border border-zinc-200 rounded-xl flex items-center justify-center text-zinc-400 text-sm shadow-sm font-semibold">
+              [QRIS MASIH MENUNGGU]
             </div>
-            <p className="text-sm text-zinc-500">Total Pembayaran: <br/><span className="text-2xl font-bold text-zinc-900">Rp {estimatedPrice.toLocaleString('id-ID')}</span></p>
+            <p className="text-sm text-zinc-500">Total Pembayaran: <br /><span className="text-2xl font-bold text-zinc-900">Rp {estimatedPrice.toLocaleString('id-ID')}</span></p>
           </div>
         ) : (
           <div className="bg-zinc-50 p-6 rounded-2xl border border-zinc-200 mb-8">
             <p className="font-bold text-lg text-zinc-800 mb-2">Pembayaran Tunai</p>
-            <p className="text-zinc-600">Siapkan uang tunai sebesar <br/><span className="text-2xl font-bold text-zinc-900">Rp {estimatedPrice.toLocaleString('id-ID')}</span></p>
+            <p className="text-zinc-600">Siapkan uang tunai sebesar <br /><span className="text-2xl font-bold text-zinc-900">Rp {estimatedPrice.toLocaleString('id-ID')}</span></p>
           </div>
         )}
 
-        <a 
-          href={`https://wa.me/6285806912873?text=${encodeURIComponent(`Halo Admin PRINT GO! 👋\n\nSaya sudah order atas nama: *${customerName}*\nTotal Biaya: Rp ${estimatedPrice.toLocaleString('id-ID')}\nFile: Sudah diupload di web.\n\nMohon segera diproses ya. Terima kasih!`)}`}
+        <a
+          href={`https://wa.me/6281556893252?text=${encodeURIComponent(`Halo Admin PRINT GO! 👋\n\nSaya sudah order atas nama: *${customerName}*\nTotal Biaya: Rp ${estimatedPrice.toLocaleString('id-ID')}\nFile: Sudah diupload di web.\n\nMohon segera diproses ya. Terima kasih!`)}`}
           target="_blank"
           rel="noreferrer"
           className="flex items-center justify-center gap-2 w-full bg-zinc-900 text-white font-semibold py-4 px-4 rounded-full mb-3 hover:bg-zinc-800 transition shadow-md"
@@ -168,7 +199,7 @@ export default function OrderForm() {
           Konfirmasi via WhatsApp
         </a>
 
-        <button 
+        <button
           onClick={() => window.location.reload()}
           className="block w-full bg-white text-zinc-600 font-semibold py-4 px-4 rounded-full border border-zinc-200 hover:bg-zinc-50 transition"
         >
@@ -180,11 +211,11 @@ export default function OrderForm() {
 
   // TAMPILAN FORM ORDER
   return (
-    <motion.form 
+    <motion.form
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      onSubmit={handleSubmit} 
+      onSubmit={handleSubmit}
       className="max-w-2xl mx-auto bg-white p-8 md:p-12 rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-zinc-100 space-y-6"
     >
       <div className="text-center mb-10">
@@ -216,11 +247,11 @@ export default function OrderForm() {
       <div>
         <label className="block text-sm font-semibold text-zinc-700 mb-2">Upload Dokumen (Max 10MB)</label>
         <div className="border-2 border-dashed border-zinc-200 rounded-2xl p-6 text-center hover:bg-zinc-50 transition-colors">
-          <input 
-            type="file" 
-            accept=".pdf,.doc,.docx,.jpg,.png" 
+          <input
+            type="file"
+            accept=".pdf,.doc,.docx,.jpg,.png"
             onChange={handleFileChange}
-            className="w-full text-sm text-zinc-500 file:mr-4 file:py-2.5 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-zinc-900 file:text-white hover:file:bg-zinc-800 cursor-pointer" 
+            className="w-full text-sm text-zinc-500 file:mr-4 file:py-2.5 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-zinc-900 file:text-white hover:file:bg-zinc-800 cursor-pointer"
           />
         </div>
         <p className="text-xs text-zinc-400 mt-2 ml-2">*Format: PDF, Word, JPG, PNG.</p>
@@ -236,12 +267,12 @@ export default function OrderForm() {
           </select>
         </div>
         <div>
-          <label className="block text-sm font-semibold text-zinc-700 mb-2">Jumlah Lembar</label>
-          <input 
-            name="jumlah" type="number" min="1" value={qty}
-            onChange={(e) => setQty(parseInt(e.target.value) || 1)}
-            required 
-            className="w-full border border-zinc-200 p-3.5 rounded-xl focus:ring-2 focus:ring-zinc-900 outline-none transition-all bg-zinc-50 focus:bg-white" 
+          <label className="block text-sm font-semibold text-zinc-700 mb-2">Jumlah Lembar Cetak</label>
+          <input
+            name="jumlah" type="number" min="0" value={qty}
+            onChange={(e) => setQty(e.target.value === '' ? '' : parseInt(e.target.value))}
+            required
+            className="w-full border border-zinc-200 p-3.5 rounded-xl focus:ring-2 focus:ring-zinc-900 outline-none transition-all bg-zinc-50 focus:bg-white"
           />
         </div>
       </div>
@@ -262,6 +293,37 @@ export default function OrderForm() {
         </div>
       </div>
 
+      {/* SECTION TAMBAHAN ALAT TULIS */}
+      <div>
+        <label className="block text-sm font-semibold text-zinc-700 mb-3">Tambahan Alat Tulis (Opsional)</label>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="border border-zinc-200 p-3 md:p-4 rounded-xl bg-white flex justify-between items-center transition-all hover:border-zinc-300">
+            <div>
+              <span className="font-bold block text-sm text-zinc-800">Pensil</span>
+              <span className="text-xs text-zinc-500">Rp 1.500 / pcs</span>
+            </div>
+            <input
+              type="number" min="0" value={qtyPensil}
+              onChange={(e) => setQtyPensil(e.target.value === '' ? '' : parseInt(e.target.value))}
+              className="w-16 border border-zinc-200 p-2 rounded-lg text-center outline-none focus:ring-2 focus:ring-zinc-900 bg-zinc-50"
+              placeholder="0"
+            />
+          </div>
+          <div className="border border-zinc-200 p-3 md:p-4 rounded-xl bg-white flex justify-between items-center transition-all hover:border-zinc-300">
+            <div>
+              <span className="font-bold block text-sm text-zinc-800">Bolpoin</span>
+              <span className="text-xs text-zinc-500">Rp 2.000 / pcs</span>
+            </div>
+            <input
+              type="number" min="0" value={qtyBolpoin}
+              onChange={(e) => setQtyBolpoin(e.target.value === '' ? '' : parseInt(e.target.value))}
+              className="w-16 border border-zinc-200 p-2 rounded-lg text-center outline-none focus:ring-2 focus:ring-zinc-900 bg-zinc-50"
+              placeholder="0"
+            />
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label className="block text-sm font-semibold text-zinc-700 mb-2">Waktu Ambil</label>
@@ -278,7 +340,7 @@ export default function OrderForm() {
 
       <div>
         <label className="block text-sm font-semibold text-zinc-700 mb-2">Catatan Tambahan (Opsional)</label>
-        <textarea 
+        <textarea
           name="catatan" rows={3}
           className="w-full border border-zinc-200 p-4 rounded-xl focus:ring-2 focus:ring-zinc-900 outline-none transition-all bg-zinc-50 focus:bg-white resize-none"
           placeholder="Contoh: Tolong dijilid spiral, Print halaman 1-10 saja..."
@@ -292,12 +354,12 @@ export default function OrderForm() {
         </span>
       </div>
 
-      <button 
-        type="submit" 
+      <button
+        type="submit"
         disabled={loading}
         className="w-full bg-zinc-900 text-white py-4 rounded-full font-bold text-lg hover:bg-zinc-800 disabled:bg-zinc-300 disabled:text-zinc-500 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl mt-6"
       >
-        {loading ? 'Memproses Dokumen...' : 'Kirim Pesanan Sekarang'}
+        {loading ? 'Memproses Pesanan...' : 'Kirim Pesanan Sekarang'}
       </button>
 
       {message && (

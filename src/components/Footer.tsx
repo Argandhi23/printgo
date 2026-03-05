@@ -38,9 +38,8 @@ export default function Footer() {
         <div>
           <h3 className="text-zinc-100 font-semibold mb-6">Kontak</h3>
           <ul className="space-y-4 text-sm text-zinc-500">
-            <li>Jl. Teknologi No. 42, Jakarta</li>
-            <li>hello@printgo.com</li>
-            <li>WA: +62 812 3456 7890</li>
+            <li>Magetan, Jawa Timur, Indonesia</li>
+            <li>WA: +62 815 5689 3252</li>
           </ul>
         </div>
       </motion.div>
