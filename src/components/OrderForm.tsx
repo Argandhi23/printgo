@@ -3,6 +3,7 @@
 import { createClient } from '@/utils/supabase/client'
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
+import Image from 'next/image'
 
 export default function OrderForm() {
   const supabase = createClient()
@@ -11,7 +12,6 @@ export default function OrderForm() {
   const [message, setMessage] = useState('')
   const [file, setFile] = useState<File | null>(null)
 
-  // State untuk jumlah diubah agar bisa menerima input kosong ('') agar UX lebih nyaman
   const [qty, setQty] = useState<number | ''>(0)
   const [qtyPensil, setQtyPensil] = useState<number | ''>(0)
   const [qtyBolpoin, setQtyBolpoin] = useState<number | ''>(0)
@@ -35,7 +35,6 @@ export default function OrderForm() {
     }
     checkStoreHours()
 
-    // Kalkulasi total harga termasuk tambahan alat tulis
     const pricePerSheet = isColor ? 1500 : 1000
     const totalPrint = (Number(qty) || 0) * pricePerSheet
     const totalPensil = (Number(qtyPensil) || 0) * 1500
@@ -81,6 +80,22 @@ export default function OrderForm() {
     setLoading(true)
     setMessage('')
 
+    // --- TAMBAHAN PENGAMAN 1: Mencegah checkout jika qty 0 atau kosong ---
+    if (qty === '' || Number(qty) <= 0) {
+      alert('⚠️ Jumlah lembar cetak tidak boleh kosong atau 0. Minimal 1 lembar ya!')
+      setLoading(false)
+      return
+    }
+    // ----------------------------------------------------------------------
+
+    // --- TAMBAHAN PENGAMAN 2: Wajib upload file jika mau print ---
+    if (!file) {
+      alert('⚠️ Tolong upload file dokumennya ya!')
+      setLoading(false)
+      return
+    }
+    // -------------------------------------------------------------
+
     const formData = new FormData(e.currentTarget)
     const nama = formData.get('nama') as string
     const nohp = formData.get('nohp') as string
@@ -89,7 +104,6 @@ export default function OrderForm() {
     const metodeBayar = formData.get('metode_bayar') as "cash" | "qris"
     const catatan = formData.get('catatan') as string
 
-    // Menggabungkan pesanan ATK ke dalam notes agar tidak perlu ubah database
     let finalNotes = catatan
     const pQty = Number(qtyPensil) || 0
     const bQty = Number(qtyBolpoin) || 0
@@ -101,18 +115,10 @@ export default function OrderForm() {
       finalNotes += `\n\n(Tambahan Pembelian: ${tambahan.join(', ')})`
     }
 
-    if (!file && (Number(qty) > 0)) {
-      alert('Tolong upload file dokumennya ya!')
-      setLoading(false)
-      return
-    }
-
     try {
       let publicUrl = ''
 
-      // Jika ada file yang diupload
       if (file) {
-        // Membersihkan nama file dari spasi dan karakter khusus (seperti kurung siku, dll)
         const cleanFileName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
         const fileName = `${Date.now()}-${cleanFileName}`
 
@@ -178,9 +184,18 @@ export default function OrderForm() {
         {selectedMethod === 'qris' ? (
           <div className="bg-zinc-50 p-6 rounded-2xl border border-zinc-200 mb-8">
             <h3 className="font-bold text-lg mb-3 text-zinc-800">Scan QRIS</h3>
-            <div className="w-48 h-48 mx-auto mb-4 bg-white border border-zinc-200 rounded-xl flex items-center justify-center text-zinc-400 text-sm shadow-sm font-semibold">
-              [QRIS MASIH MENUNGGU]
+
+            <div className="w-64 sm:w-72 mx-auto mb-5 bg-white border border-zinc-200 rounded-2xl flex items-center justify-center shadow-sm overflow-hidden p-4">
+              <Image
+                src="/qris.jpeg"
+                alt="QRIS Pembayaran"
+                width={400}
+                height={550}
+                className="w-full h-auto object-contain"
+                priority
+              />
             </div>
+
             <p className="text-sm text-zinc-500">Total Pembayaran: <br /><span className="text-2xl font-bold text-zinc-900">Rp {estimatedPrice.toLocaleString('id-ID')}</span></p>
           </div>
         ) : (
@@ -268,8 +283,9 @@ export default function OrderForm() {
         </div>
         <div>
           <label className="block text-sm font-semibold text-zinc-700 mb-2">Jumlah Lembar Cetak</label>
+          {/* UBAH DI SINI: Atribut min jadi "1" */}
           <input
-            name="jumlah" type="number" min="0" value={qty}
+            name="jumlah" type="number" min="1" value={qty}
             onChange={(e) => setQty(e.target.value === '' ? '' : parseInt(e.target.value))}
             required
             className="w-full border border-zinc-200 p-3.5 rounded-xl focus:ring-2 focus:ring-zinc-900 outline-none transition-all bg-zinc-50 focus:bg-white"

@@ -76,7 +76,7 @@ export default function CekStatusPage() {
             className="space-y-4"
           >
             {orders.length === 0 ? (
-              <div className="text-center text-zinc-400 py-12 bg-zinc-50 rounded-[2rem] border border-zinc-100">
+              <div className="text-center text-zinc-400 py-12 bg-zinc-50 rounded-4xl border border-zinc-100">
                 <svg className="w-12 h-12 mx-auto mb-4 text-zinc-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
@@ -90,7 +90,7 @@ export default function CekStatusPage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
                   key={order.id} 
-                  className="bg-white p-6 md:p-8 rounded-[2rem] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-zinc-100 hover:border-zinc-200 transition-all flex flex-col md:flex-row md:justify-between md:items-center gap-6"
+                  className="bg-white p-6 md:p-8 rounded-4xl shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-zinc-100 hover:border-zinc-200 transition-all flex flex-col md:flex-row md:justify-between md:items-center gap-6"
                 >
                   <div>
                     <div className="flex items-center gap-3 mb-2">
@@ -116,7 +116,7 @@ export default function CekStatusPage() {
                     
                     <div className="flex flex-wrap items-center gap-4 text-sm text-zinc-500 mt-3">
                       <p className="flex items-center gap-1.5">
-                        <span className={`w-2 h-2 rounded-full ${order.is_color ? 'bg-gradient-to-r from-violet-500 to-cyan-500' : 'bg-zinc-800'}`}></span>
+                        <span className={`w-2 h-2 rounded-full ${order.is_color ? 'bg-linear-to-r from-violet-500 to-cyan-500' : 'bg-zinc-800'}`}></span>
                         {order.is_color ? 'Cetak Berwarna' : 'Hitam Putih'}
                       </p>
                       <span className="w-1 h-1 bg-zinc-300 rounded-full"></span>

@@ -399,7 +399,7 @@ export default function AdminPage() {
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="bg-white rounded-[2rem] p-8 max-w-sm w-full shadow-2xl border border-zinc-100 text-center relative"
+              className="bg-white rounded-4xl p-8 max-w-sm w-full shadow-2xl border border-zinc-100 text-center relative"
             >
               {cleanupStatus === 'idle' && (
                 <>
